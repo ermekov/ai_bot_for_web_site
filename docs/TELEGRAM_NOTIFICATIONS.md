@@ -1,65 +1,47 @@
 # Уведомления в Telegram о новых заявках
 
-Telegram-уведомление лучше отправлять из Google Apps Script, а не из React. Так bot token не попадет в браузер и GitHub.
+Telegram-уведомление лучше отправлять из Google Apps Script, а не из React. Так bot token не попадет в браузер, GitHub или frontend bundle.
 
-Важно: бот Telegram обычно не может отправить личное сообщение просто на `@eeermekov`. Для личных сообщений нужен numeric `chat_id`. Пользователь должен сначала нажать `Start` в боте.
+## Что нужно
 
-## 1. Создайте Telegram-бота
+- `TELEGRAM_BOT_TOKEN` от BotFather.
+- `TELEGRAM_CHAT_ID` получателя. Для личных сообщений пользователь должен сначала нажать `Start` в боте.
 
-1. Откройте Telegram.
-2. Напишите `@BotFather`.
-3. Выполните `/newbot`.
-4. Скопируйте bot token.
+Не добавляйте token в React, GitHub, Vercel frontend env или публичные файлы.
 
-Token выглядит примерно так:
+## 1. Сохраните token и chat_id в Script Properties
 
-```txt
-1234567890:AA_example_token
-```
-
-Не добавляйте этот token в React, Vercel env для frontend или GitHub.
-
-## 2. Получите chat_id
-
-1. Откройте созданного бота в Telegram.
-2. Нажмите `Start`.
-3. Откройте в браузере:
+В Apps Script откройте `Project Settings` -> `Script Properties` и добавьте:
 
 ```txt
-https://api.telegram.org/botBOT_TOKEN/getUpdates
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
 ```
 
-Замените `BOT_TOKEN` на token от BotFather.
+## 2. Обновите Apps Script
 
-4. В ответе найдите:
-
-```json
-"chat":{"id":123456789}
-```
-
-Это число и есть `TELEGRAM_CHAT_ID`.
-
-## 3. Добавьте Telegram в Apps Script
-
-В начало Google Apps Script добавьте:
+В функции `doPost(e)` после строки:
 
 ```js
-const TELEGRAM_BOT_TOKEN = 'PASTE_BOT_TOKEN_HERE';
-const TELEGRAM_CHAT_ID = 'PASTE_CHAT_ID_HERE';
+saveLead(data);
 ```
 
-В функции `doPost(e)` после `saveLead(data);` добавьте:
+добавьте:
 
 ```js
 sendTelegramNotification(data);
 ```
 
-И добавьте эту функцию ниже:
+Затем добавьте эти функции ниже:
 
 ```js
 function sendTelegramNotification(data) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    return;
+  const properties = PropertiesService.getScriptProperties();
+  const botToken = properties.getProperty('TELEGRAM_BOT_TOKEN');
+  const chatId = properties.getProperty('TELEGRAM_CHAT_ID');
+
+  if (!botToken || !chatId) {
+    throw new Error('Telegram token or chat_id is not configured');
   }
 
   const text = [
@@ -74,20 +56,36 @@ function sendTelegramNotification(data) {
     `Источник: ${data.source || '-'}`,
   ].join('\n');
 
-  UrlFetchApp.fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  const response = UrlFetchApp.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: 'post',
     contentType: 'application/json',
     payload: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
+      chat_id: chatId,
       text,
       disable_web_page_preview: true,
     }),
     muteHttpExceptions: true,
   });
+
+  const statusCode = response.getResponseCode();
+  if (statusCode < 200 || statusCode >= 300) {
+    throw new Error(`Telegram notification failed: ${response.getContentText()}`);
+  }
+}
+
+function testTelegramNotification() {
+  sendTelegramNotification({
+    name: 'Тест',
+    phone: '+7 700 000 00 00',
+    businessType: 'Проверка',
+    message: 'Проверка Telegram-уведомления',
+    page: 'manual-test',
+    source: 'apps-script-test',
+  });
 }
 ```
 
-## 4. Обновите deployment
+## 3. Обновите deployment
 
 После изменения Apps Script:
 
