@@ -1,4 +1,7 @@
-const LEAD_WEBHOOK_URL = import.meta.env.VITE_LEAD_WEBHOOK_URL?.trim();
+const DEFAULT_LEAD_WEBHOOK_URL =
+  'https://script.google.com/macros/s/AKfycbzJlYDCDQBfdJuc7pRUWSaBGp9Xh7Hi8FtevSCjnqVoUTws-7xYD2fxTfLY0Ep59N0CJw/exec';
+
+const LEAD_WEBHOOK_URL = import.meta.env.VITE_LEAD_WEBHOOK_URL?.trim() || DEFAULT_LEAD_WEBHOOK_URL;
 
 export async function submitLead(form) {
   if (!LEAD_WEBHOOK_URL) {
